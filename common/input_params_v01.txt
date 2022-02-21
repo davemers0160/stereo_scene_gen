@@ -1,0 +1,26 @@
+# data file for generating the blurred image dataset
+# 0 scenario name
+test1
+
+#1 background probablility, foreground probablility
+0.31, 0.35
+
+#2 ROI depthmap values, the first value is the foregraound depthmap value and the last value is the background depthmap value
+#1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21
+# z_min:z_step:z_max (meters)
+0.5:0.5:15
+
+#3 camera parameters (meters) - pixel size, focal length, camera baseline
+2e-6, 0.00212, 0.120
+
+#4 image size: height, width
+512, 512
+
+#5 maximum number of depthmap values within a single image
+10
+
+#6 number of images to generate
+10
+
+#7 save location
+d:/data/dfd/tb23a_wood/
