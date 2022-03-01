@@ -41,7 +41,7 @@ typedef void* HINSTANCE;
 
 //#include <vs_gen_lib.h>
 
-// ----------------------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 inline std::ostream& operator<<(std::ostream& out, std::vector<uint8_t>& item)
 {
     for (uint64_t idx = 0; idx < item.size() - 1; ++idx)
@@ -52,7 +52,7 @@ inline std::ostream& operator<<(std::ostream& out, std::vector<uint8_t>& item)
     return out;
 }
 
-// ----------------------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 template <typename T>
 inline std::ostream& operator<<(std::ostream& out, std::vector<T>& item)
 {
@@ -64,7 +64,13 @@ inline std::ostream& operator<<(std::ostream& out, std::vector<T>& item)
     return out;
 }
 
-// ----------------------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+inline int32_t calc_shift(double range, double focal_length, double pixel_size, double baseline)
+{
+
+}
+
+// ----------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
     uint32_t idx = 0, jdx = 0;
@@ -81,6 +87,7 @@ int main(int argc, char** argv)
     auto elapsed_time = std::chrono::duration_cast<d_sec>(stop_time - start_time);
     std::string platform;
 
+    cv::Mat tmp_img;
     cv::Mat img_l, img_r;
     cv::Mat montage;
     cv::Mat depth_map;
@@ -100,48 +107,19 @@ int main(int argc, char** argv)
     double bg_x, fg_x;
     uint32_t bg_shape_num;                  // number of shapes in teh background image
     double pattern_scale = 0.1;
-   
-    //std::vector<std::pair<uint8_t, uint8_t>> bg_br_table;
-    //std::vector<std::pair<uint8_t, uint8_t>> fg_br_table;
-    //double prob_bg = 0.31;    // set the probablility of selecting the background depthmap value
-    //double prob_fg = 0.35;    // set the probability of selecting the foreground depthmap value
-    //double bg_x = 0, fg_x = 0;
-    //double sigma_1 = 0.0, sigma_2 = 0.0;
-    //uint8_t dm_value;
-    //std::vector<cv::Mat> blur_kernels;
-    //std::vector<cv::Mat> fft_blur_kernels;
-
     
     // stereo camara parameters (meters)
     double pixel_size = 2e-9;
     double focal_length = 0.00212;
     double baseline = 0.120;
     std::vector<double> ranges;
+    std::vector<uint16_t> disparity;
 
     uint8_t dataset_type = 0;
     uint32_t max_dm_vals_per_image = 8;
     uint32_t num_images = 10;
     std::string save_location = "../results/test/";
-    std::string lib_filename;
-
-    // uint32_t octaves = 7;
-    // double sn_scale = 0.020;
-    // double sn_slope = 1.0; 
-    // double sn_int = 0.01;
-    // double persistence = 0.70;
-    //std::vector<cv::Vec3b> wood = { cv::Vec3b(41,44,35), cv::Vec3b(57,91,61), cv::Vec3b(80,114,113), cv::Vec3b(64,126,132) };
-    std::vector<uint8_t> wood = { 41,44,35, 57,91,61, 80,114,113, 64,126,132 };
-
-    // use these variables for the datatype > 0
-    // typedef void (*init_)(long seed);
-    // typedef unsigned int (*evaluate_)(double x, double y, double scale, unsigned int num);
-    // typedef unsigned int (*octave_evaluate_)(double x, double y, double scale, unsigned int octaves, double persistence);
-    // typedef void (*create_color_map_)(unsigned int h, unsigned int w, double scale, unsigned int octaves, double persistence, unsigned char* color, unsigned char* map);
-    // HINSTANCE simplex_noise_lib = NULL;
-    // init_ simplex_init;
-    // evaluate_ evaluate;
-    // octave_evaluate_ octave_evaluate;
-    // create_color_map_ create_color_map;
+    //std::string lib_filename;
 
     if (argc == 1)
     {
@@ -164,11 +142,22 @@ int main(int argc, char** argv)
     read_params(param_filename, scenario_name, bg_prob, fg_prob, ranges, pixel_size, focal_length, baseline,
         img_h, img_w, max_dm_vals_per_image, num_images, save_location);
 
+    // check to make sure that z_min is not 0, if it is erase it
+    if (ranges[0] == 0.0)
+    {
+        ranges.erase(ranges.begin());
+    }
     // assign the foreground and background depthmap values based on the ranges input
     uint8_t fg_dm_value = 0;
     uint8_t bg_dm_value = static_cast<uint8_t>(ranges.size());
 
     bg_shape_num = (uint32_t)std::floor(1.9 * std::max(img_w, img_h));
+
+    // calculate the disparity values based on the binned ranges, focal length, baseline and pixel size
+    for (idx = 0; idx < ranges.size(); ++idx)
+    {
+        disparity.push_back((uint16_t)(floor(focal_length * baseline / (ranges[idx] * pixel_size) + 0.5)));
+    }
 
     // create results directories if they do not exist
     mkdir(save_location + "images");
@@ -228,7 +217,7 @@ int main(int argc, char** argv)
 
         double scale = 0.1;
 
-        for (jdx = 0; jdx < num_images; ++jdx)
+        for (idx = 0; idx < num_images; ++idx)
         {
             
             img_l = cv::Mat(img_h, img_w, CV_8UC3, cv::Scalar::all(0));
@@ -268,11 +257,11 @@ int main(int argc, char** argv)
             }
 
             // fill in the tables for the region of interest depthmap values
-            for (idx = 0; idx < dm_indexes.size(); ++idx)
+            for (jdx = 0; jdx < dm_indexes.size(); ++jdx)
             {
-                //tmp_br1_table.push_back(br1_table[dm_indexes[idx]]);
-                //tmp_br2_table.push_back(br2_table[dm_indexes[idx]]);
-                dm_values.push_back(dm_indexes[idx]);
+                //tmp_br1_table.push_back(br1_table[dm_indexes[jdx]]);
+                //tmp_br2_table.push_back(br2_table[dm_indexes[jdx]]);
+                dm_values.push_back(dm_indexes[jdx]);
             }
 
             // check the foreground probability and fill in the tables
@@ -286,7 +275,13 @@ int main(int argc, char** argv)
             }
 
             // generate a random image
-            generate_random_image(img_l, rng, img_h, img_w, bg_shape_num, pattern_scale);
+            generate_random_image(tmp_img, rng, img_h, img_w + disparity[dm_indexes[0]], bg_shape_num, pattern_scale);
+
+            // crop the image according to the disparity
+            img_l = tmp_img(cv::Rect(0, 0, img_w, img_h));
+            img_r = tmp_img(cv::Rect(disparity[dm_indexes[0]], 0, img_w, img_h));
+
+            tmp_img = cv::Mat(img_h, img_w, CV_8UC3, cv::Scalar::all(0));
 
 
             // if the platform is an HPC platform then don't display anything

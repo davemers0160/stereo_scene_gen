@@ -6,8 +6,7 @@ test1
 0.31, 0.35
 
 #2 ROI depthmap values, the first value is the foregraound depthmap value and the last value is the background depthmap value
-#1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21
-# z_min:z_step:z_max (meters)
+# z_min:z_step:z_max (meters), z_min cannot be 0
 0.5:0.5:15
 
 #3 camera parameters (meters) - pixel size, focal length, camera baseline
