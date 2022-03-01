@@ -113,7 +113,7 @@ int main(int argc, char** argv)
     double focal_length = 0.00212;
     double baseline = 0.120;
     std::vector<double> ranges;
-    std::vector<uint16_t> disparity;
+    std::vector<uint32_t> disparity;
 
     uint8_t dataset_type = 0;
     uint32_t max_dm_vals_per_image = 8;
@@ -156,7 +156,7 @@ int main(int argc, char** argv)
     // calculate the disparity values based on the binned ranges, focal length, baseline and pixel size
     for (idx = 0; idx < ranges.size(); ++idx)
     {
-        disparity.push_back((uint16_t)(floor(focal_length * baseline / (ranges[idx] * pixel_size) + 0.5)));
+        disparity.push_back((uint32_t)(floor((focal_length * baseline) / (ranges[idx] * pixel_size) + 0.5)));
     }
 
     // create results directories if they do not exist
@@ -220,9 +220,9 @@ int main(int argc, char** argv)
         for (idx = 0; idx < num_images; ++idx)
         {
             
-            img_l = cv::Mat(img_h, img_w, CV_8UC3, cv::Scalar::all(0));
-            img_r = cv::Mat(img_h, img_w, CV_8UC3, cv::Scalar::all(0));
-            depth_map = cv::Mat(img_h, img_w, CV_8UC1, cv::Scalar::all(0));
+            //img_l = cv::Mat(img_h, img_w, CV_8UC3, cv::Scalar::all(0));
+            //img_r = cv::Mat(img_h, img_w, CV_8UC3, cv::Scalar::all(0));
+            //depth_map = cv::Mat(img_h, img_w, CV_8UC1, cv::Scalar::all(0));
 
             dm_values.clear();
 
@@ -275,14 +275,16 @@ int main(int argc, char** argv)
             }
 
             // generate a random image
-            generate_random_image(tmp_img, rng, img_h, img_w + disparity[dm_indexes[0]], bg_shape_num, pattern_scale);
+            generate_random_image(tmp_img, rng, img_h, img_w + disparity[dm_values[0]], bg_shape_num, pattern_scale);
 
             // crop the image according to the disparity
             img_l = tmp_img(cv::Rect(0, 0, img_w, img_h));
             img_r = tmp_img(cv::Rect(disparity[dm_indexes[0]], 0, img_w, img_h));
+            depth_map = cv::Mat(img_h, img_w, CV_8UC1, cv::Scalar::all(dm_values[0]));
 
             tmp_img = cv::Mat(img_h, img_w, CV_8UC3, cv::Scalar::all(0));
 
+            int16_t dm = rng.uniform(-1, 1);
 
             // if the platform is an HPC platform then don't display anything
             if (!HPC)
