@@ -282,9 +282,31 @@ int main(int argc, char** argv)
             img_r = tmp_img(cv::Rect(disparity[dm_indexes[0]], 0, img_w, img_h));
             depth_map = cv::Mat(img_h, img_w, CV_8UC1, cv::Scalar::all(dm_values[0]));
 
-            tmp_img = cv::Mat(img_h, img_w, CV_8UC3, cv::Scalar::all(0));
+            for (jdx = 1; jdx < dm_values.size(); ++jdx)
+            {
+                
 
-            int16_t dm = rng.uniform(-1, 1);
+
+
+
+
+
+
+                
+            }
+
+
+
+
+
+
+
+
+
+
+            //tmp_img = cv::Mat(img_h, img_w, CV_8UC3, cv::Scalar::all(0));
+
+            //int16_t dm = rng.uniform(-1, 1);
 
             // if the platform is an HPC platform then don't display anything
             if (!HPC)
