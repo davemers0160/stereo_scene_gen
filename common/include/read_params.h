@@ -26,7 +26,9 @@ void get_platform(std::string& platform)
 void read_params(std::string param_filename,
     std::string &scenario_name,
     double& bg_prob,
+    std::vector<double>& bg_range_values,
     double& fg_prob,
+    std::vector<double>& fg_range_values,
     std::vector<double> &range_values, 
     double &pixel_size,
     double &focal_length,
@@ -50,29 +52,40 @@ void read_params(std::string param_filename,
                 scenario_name = params[idx][0];
                 break;
 
-            // #1 background and foreground probabilities 
+            // #1 background probability and associated ranges
             case 1:
                 try {
                     bg_prob = std::stod(params[idx][0]);
-                    fg_prob = std::stod(params[idx][1]);
+                    parse_input_range(params[idx][1], bg_range_values);
                 }
                 catch (...)
                 {
-                    throw std::runtime_error("Error parsing line " + std::to_string(idx));
+                    throw std::runtime_error("Error parsing line " + std::to_string(idx) + "of input file " + param_filename);
                 }
                 break;
-            // #2 real range values
+            // #2 foreground probability and associated ranges
             case 2:
+                try {
+                    fg_prob = std::stod(params[idx][0]);
+                    parse_input_range(params[idx][1], fg_range_values);
+                }
+                catch (...)
+                {
+                    throw std::runtime_error("Error parsing line " + std::to_string(idx) + "of input file " + param_filename);
+                }
+                break;
+            // #3 real range values
+            case 3:
                 try {
                     parse_input_range(params[idx][0], range_values);
                 }
                 catch (...)
                 {
-                    throw std::runtime_error("Error parsing line " + std::to_string(idx));
+                    throw std::runtime_error("Error parsing line " + std::to_string(idx) + "of input file " + param_filename);
                 }
                 break;
-            // #3 camera parameters
-            case 3:
+            // #4 camera parameters
+            case 4:
                 try {
                     pixel_size = std::stod(params[idx][0]);
                     focal_length = std::stod(params[idx][1]);
@@ -80,12 +93,12 @@ void read_params(std::string param_filename,
                 }
                 catch (...)
                 {
-                    throw std::runtime_error("Error parsing line " + std::to_string(idx));
+                    throw std::runtime_error("Error parsing line " + std::to_string(idx) + "of input file " + param_filename);
                 }
                 break;
 
-            // #4 image size: height, width
-            case 4:
+            // #5 image size: height, width
+            case 5:
                 try
                 {
                     img_h = (uint32_t)std::stoi(params[idx][0]);
@@ -98,29 +111,29 @@ void read_params(std::string param_filename,
                 }
                 break;
 
-            // #5 maximum number of depthmap values within a single image
-            case 5:
+            // #6 maximum number of depthmap values within a single image
+            case 6:
                 try {
                     max_dm_vals_per_image = (uint32_t)std::stoi(params[idx][0]);
                 }
                 catch (...)
                 {
-                    throw std::runtime_error("Error parsing line " + std::to_string(idx));
+                    throw std::runtime_error("Error parsing line " + std::to_string(idx) + "of input file " + param_filename);
                 }
                 break;
 
-            // #6 number of images to generate
-            case 6:
+            // #7 number of images to generate
+            case 7:
                 try {
                     num_images = (uint32_t)std::stoi(params[idx][0]);
                 }
                 catch (...)
                 {
-                    throw std::runtime_error("Error parsing line " + std::to_string(idx));
+                    throw std::runtime_error("Error parsing line " + std::to_string(idx) + "of input file " + param_filename);
                 }
                 break;
-            // #13 save location
-            case 13:
+            // #8 save location
+            case 8:
                 save_location = params[idx][0];
                 break;
             default:

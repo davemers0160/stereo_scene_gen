@@ -2,24 +2,26 @@
 # 0 scenario name
 test1
 
-#1 background probablility, foreground probablility
-0.31, 0.35
+#1 background probablility, ranges (min:step:max (meters), min/max cannot be 0)
+0.31, 15:2:25
 
-#2 ROI depthmap values, the first value is the foregraound depthmap value and the last value is the background depthmap value
-# z_min:z_step:z_max (meters), z_min cannot be 0
-0.5:0.5:15
+#2 foreground probablility, ranges (min:step:max (meters), min/max cannot be 0)
+0.35, 0.1:0.1:0.4
 
-#3 camera parameters (meters) - pixel size, focal length, camera baseline
+#3 ROI ranges (min:step:max (meters), min/max cannot be 0
+0.5:0.5:14.5
+
+#4 camera parameters (meters) - pixel size, focal length, camera baseline
 2e-6, 0.00212, 0.120
 
-#4 image size: height, width
+#5 image size: height, width
 512, 512
 
-#5 maximum number of depthmap values within a single image
+#6 maximum number of depthmap values within a single image
 10
 
-#6 number of images to generate
+#7 number of images to generate
 10
 
-#7 save location
+#8 save location
 d:/data/dfd/tb23a_wood/

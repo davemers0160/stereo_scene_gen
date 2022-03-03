@@ -100,19 +100,21 @@ int main(int argc, char** argv)
     std::string input_param_file;
 
     std::string scenario_name;
-    std::string f1_filename, f2_filename, dmap_filename;
+    std::string f1_filename, f2_filename, depthmap_filename;
 
     int32_t N, min_N, max_N;
     uint8_t bg_dm, fg_dm;                   // background and foreground depthmap values
     double bg_prob, fg_prob;                // background and foreground probability of this value being selected
+    double bg_x, fg_x;
+    std::vector<double> bg_range_values, fg_range_values;
+
     std::vector<uint8_t> dm_values;         // container to store the current set of depthmap values
     std::vector<uint8_t> dm_indexes;
     double shape_scale = 0.1;
     double pattern_scale = 0.1;
     double tmp_shape_scale;
-    double bg_x, fg_x;
     uint32_t bg_shape_num;                  // number of shapes in teh background image
-    int32_t x_offset, y_offset;
+    int32_t x_offset, y_offset;             // used to jitter the right hand side image slightly
     
     // stereo camera parameters (meters)
     double pixel_size = 2e-9;
@@ -120,6 +122,7 @@ int main(int argc, char** argv)
     double baseline = 0.120;
     std::vector<double> ranges;
     std::vector<uint32_t> disparity;
+    std::vector<uint32_t> bg_disparity, fg_disparity;
 
     uint8_t dataset_type = 0;
     uint32_t max_dm_vals_per_image = 8;
@@ -130,7 +133,11 @@ int main(int argc, char** argv)
     if (argc == 1)
     {
         std::cout << "Error: Missing confige file" << std::endl;
-        std::cout << "Usage: ./pg <confige_file.txt>" << std::endl;
+#if defined(_WIN32) | defined(__WIN32__) | defined(__WIN32) | defined(_WIN64) | defined(__WIN64)
+        std::cout << "Usage: ss_gen <confige_file.txt>" << std::endl;
+#else
+        std::cout << "Usage: ./ss_gen <confige_file.txt>" << std::endl;
+#endif
         std::cout << std::endl;
         std::cin.ignore();
         return 0;
@@ -145,30 +152,56 @@ int main(int argc, char** argv)
     }
 
     std::string param_filename = argv[1];
-    read_params(param_filename, scenario_name, bg_prob, fg_prob, ranges, pixel_size, focal_length, baseline,
-        img_h, img_w, max_dm_vals_per_image, num_images, save_location);
+    read_params(param_filename, scenario_name, bg_prob, bg_range_values, fg_prob, fg_range_values, ranges, pixel_size, focal_length, 
+        baseline, img_h, img_w, max_dm_vals_per_image, num_images, save_location);
 
-    // check to make sure that z_min is not 0, if it is erase it
+    bg_shape_num = (uint32_t)std::floor(1.9 * std::max(img_w, img_h));
+
+    // ----------------------------------------------------------------------------
+    // check to make sure that min value is not 0, if it is erase it for each of the ranges
     if (ranges[0] == 0.0)
     {
         ranges.erase(ranges.begin());
     }
+
+    if (bg_range_values[0] == 0.0)
+    {
+        bg_range_values.erase(bg_range_values.begin());
+    }
+
+    if (fg_range_values[0] == 0.0)
+    {
+        fg_range_values.erase(fg_range_values.begin());
+    }
+
+    // ----------------------------------------------------------------------------
     // assign the foreground and background depthmap values based on the ranges input
     uint8_t fg_dm_value = 0;
-    uint8_t bg_dm_value = static_cast<uint8_t>(ranges.size() - 1);
+    uint8_t bg_dm_value = static_cast<uint8_t>(ranges.size());
 
-    bg_shape_num = (uint32_t)std::floor(1.9 * std::max(img_w, img_h));
-
-    // calculate the disparity values based on the binned ranges, focal length, baseline and pixel size
+    // ----------------------------------------------------------------------------
+    // calculate the disparity values based on the binned ranges, focal length, baseline and pixel size for ROI, background and foreground
     for (idx = 0; idx < ranges.size(); ++idx)
     {
         disparity.push_back((uint32_t)(floor((focal_length * baseline) / (ranges[idx] * pixel_size) + 0.5)));
     }
 
+    for (idx = 0; idx < bg_range_values.size(); ++idx)
+    {
+        bg_disparity.push_back((uint32_t)(floor((focal_length * baseline) / (bg_range_values[idx] * pixel_size) + 0.5)));
+    }
+
+    for (idx = 0; idx < fg_range_values.size(); ++idx)
+    {
+        fg_disparity.push_back((uint32_t)(floor((focal_length * baseline) / (fg_range_values[idx] * pixel_size) + 0.5)));
+    }
+
+    // ----------------------------------------------------------------------------
     // create results directories if they do not exist
     mkdir(save_location + "images");
     mkdir(save_location + "depth_maps");
 
+    // ----------------------------------------------------------------------------
     // save the parameters that were used to generate the dataset
     std::ofstream param_stream(save_location + scenario_name + "parameters.txt", std::ofstream::out);
     param_stream << "# Parameters used to generate the dataset" << std::endl;
@@ -211,11 +244,11 @@ int main(int argc, char** argv)
     try
     {    
 
-        std::ofstream DataLog_Stream(save_location + scenario_name + "input_file.txt", std::ofstream::out);
-        DataLog_Stream << "# Data Directory" << std::endl;
-        DataLog_Stream << save_location << ", " << save_location << std::endl;
-        DataLog_Stream << std::endl;
-        DataLog_Stream << "# focus point 1 filename, focus point 2 filename, depthmap filename" << std::endl;
+        std::ofstream dataLog_stream(save_location + scenario_name + "input_file.txt", std::ofstream::out);
+        dataLog_stream << "# Data Directory" << std::endl;
+        dataLog_stream << save_location << ", " << save_location << std::endl;
+        dataLog_stream << std::endl;
+        dataLog_stream << "# focus point 1 filename, focus point 2 filename, depthmap filename" << std::endl;
         
         std::cout << "Data Directory: " << save_location << std::endl;
 
@@ -284,8 +317,8 @@ int main(int argc, char** argv)
             generate_random_image(random_img, rng, img_h, img_w + disparity[dm_values[0]], bg_shape_num, pattern_scale);
 
             // crop the image according to the disparity
-            img_left = random_img(cv::Rect(0, 0, img_w, img_h));
-            img_right = random_img(cv::Rect(disparity[dm_indexes[0]], 0, img_w, img_h));
+            img_left = random_img(cv::Rect(0, 0, img_w, img_h)).clone();
+            img_right = random_img(cv::Rect(disparity[dm_indexes[0]], 0, img_w, img_h)).clone();
             depth_map = cv::Mat(img_h, img_w, CV_8UC1, cv::Scalar::all(dm_values[0]));
 
             for (jdx = 1; jdx < dm_values.size(); ++jdx)
@@ -345,15 +378,15 @@ int main(int argc, char** argv)
                 cv::waitKey(10);
             }
 
-            f1_filename = "images/" + scenario_name + num2str<int>(jdx, "image_f1_%04i.png");
-            f2_filename = "images/" + scenario_name + num2str<int>(jdx, "image_f2_%04i.png");
-            dmap_filename = "depth_maps/" + scenario_name + num2str<int>(jdx, "dm_%04i.png");
+            f1_filename = "images/" + scenario_name + num2str<int>(jdx, "image_left_%04i.png");
+            f2_filename = "images/" + scenario_name + num2str<int>(jdx, "image_right_%04i.png");
+            depthmap_filename = "depth_maps/" + scenario_name + num2str<int>(jdx, "dm_%04i.png");
 
             //cv::imwrite(save_location + f1_filename, img_left);
             //cv::imwrite(save_location + f2_filename, img_right);
-            //cv::imwrite(save_location + dmap_filename, depth_map);
+            //cv::imwrite(save_location + depthmap_filename, depth_map);
 
-            std::cout << f1_filename << ", " << f2_filename << ", " << dmap_filename << std::endl;
+            std::cout << f1_filename << ", " << f2_filename << ", " << depthmap_filename << std::endl;
             
             // this doesn't get filled in anymore
             //std::cout << dm_values << std::endl;
@@ -362,7 +395,7 @@ int main(int argc, char** argv)
             //param_stream << "           " << tmp_br1_table << std::endl;
             //param_stream << "           " << tmp_br2_table << std::endl;
 
-            DataLog_Stream << f1_filename << ", " << f2_filename << ", " << dmap_filename << std::endl;
+            dataLog_stream << f1_filename << ", " << f2_filename << ", " << depthmap_filename << std::endl;
 
         } // end of for loop
 
@@ -374,7 +407,7 @@ int main(int argc, char** argv)
         std::cout << "------------------------------------------------------------------" << std::endl << std::endl;
 
         param_stream.close();
-        DataLog_Stream.close();
+        dataLog_stream.close();
     }
     catch(std::exception& e)
     {
