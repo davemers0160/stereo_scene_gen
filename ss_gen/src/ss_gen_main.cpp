@@ -254,7 +254,8 @@ int main(int argc, char** argv)
 
         start_time = std::chrono::system_clock::now();
 
-        double scale = 0.1;
+        //double scale = 0.1;
+        shape_scale = rng.uniform(shape_scale*0.65, shape_scale);
 
         for (idx = 0; idx < num_images; ++idx)
         {
@@ -264,8 +265,6 @@ int main(int argc, char** argv)
             //depth_map = cv::Mat(img_h, img_w, CV_8UC1, cv::Scalar::all(0));
 
             dm_values.clear();
-
-            tmp_shape_scale = rng.uniform(shape_scale*0.65, shape_scale);
 
             // generate random dm_values that include the foreground and background values
             int32_t tmp_dm_num = max_dm_vals_per_image;
