@@ -62,8 +62,8 @@ inline void generate_random_shape(cv::Mat& img,
     case 0:
 
         // pick a random radi for the ellipse - rng.uniform(min_dim >> 2, min_dim)
-        r1 = (long)std::floor(0.5 * shape_scale * rng.uniform(250, 500));
-        r2 = (long)std::floor(0.5 * shape_scale * rng.uniform(250, 500));
+        r1 = (long)std::floor(shape_scale * rng.uniform(120, 250));
+        r2 = (long)std::floor(shape_scale * rng.uniform(120, 250));
         a = rng.uniform(0.0, 360.0);
 
         cv::ellipse(img, cv::Point(x, y), cv::Size(r1, r2), a, 0.0, 360.0, color, -1, cv::LineTypes::LINE_8, 0);
@@ -128,6 +128,113 @@ inline void generate_random_shape(cv::Mat& img,
 
 }   // end of generate_random_shape
 
+//-----------------------------------------------------------------------------
+inline void generate_random_shape_pair(cv::Mat& img_l,
+    cv::Mat& img_r,
+    cv::RNG& rng,
+    long nr,
+    long nc,
+    cv::Scalar color,
+    double shape_scale
+)
+{
+    long x_l, y_l, x_r, y_r;
+    long r1, r2, h, w, s;
+    double a, angle;
+    int32_t radius, max_radius;
+
+    int32_t min_dim = std::min(nr, nc);
+
+    // generate the random point
+    x_l = rng.uniform(0, nc);
+    y_l = rng.uniform(0, nr);
+    x_r = x_l + rng.uniform(-1, 1);
+    y_r = y_l + rng.uniform(-1, 1);
+
+    cv::RotatedRect rect_l, rect_r;
+    cv::Point2f vertices2f_l[4], vertices2f_r[4];
+    cv::Point vertices_l[4], vertices_r[4];
+    std::vector<cv::Point> pts;
+    std::vector<std::vector<cv::Point> > vpts(1);
+
+    // get the shape type
+    switch (rng.uniform(0, 3))
+    {
+        // filled ellipse
+    case 0:
+
+        // pick a random radi for the ellipse - rng.uniform(min_dim >> 2, min_dim)
+        r1 = (long)std::floor(shape_scale * rng.uniform(120, 250));
+        r2 = (long)std::floor(shape_scale * rng.uniform(120, 250));
+        a = rng.uniform(0.0, 360.0);
+
+        cv::ellipse(img_l, cv::Point(x_l, y_l), cv::Size(r1, r2), a, 0.0, 360.0, color, -1, cv::LineTypes::LINE_8, 0);
+        cv::ellipse(img_r, cv::Point(x_r, y_r), cv::Size(r1, r2), a, 0.0, 360.0, color, -1, cv::LineTypes::LINE_8, 0);
+        break;
+
+        // filled rectangle
+    case 1:
+
+        h = (long)std::floor(shape_scale * rng.uniform(250, 500));
+        w = (long)std::floor(shape_scale * rng.uniform(250, 500));
+        a = rng.uniform(0.0, 360.0);
+
+        // Create the rotated rectangle
+        rect_l = cv::RotatedRect(cv::Point(x_l, y_l), cv::Size(w, h), (float)a);
+        rect_r = cv::RotatedRect(cv::Point(x_r, y_r), cv::Size(w, h), (float)a);
+
+        // We take the edges that OpenCV calculated for us
+        rect_l.points(vertices2f_l);
+        rect_r.points(vertices2f_r);
+
+        // Convert them so we can use them in a fillConvexPoly
+        for (int jdx = 0; jdx < 4; ++jdx)
+        {
+            vertices_l[jdx] = vertices2f_l[jdx];
+            vertices_r[jdx] = vertices2f_r[jdx];
+        }
+
+        // Now we can fill the rotated rectangle with our specified color
+        cv::fillConvexPoly(img_l, vertices_l, 4, color);
+        cv::fillConvexPoly(img_r, vertices_r, 4, color);
+        break;
+
+        // 3 to 8 sided filled polygon
+    case 2:
+
+        h = (long)std::floor(shape_scale * rng.uniform(250, 500));
+        w = (long)std::floor(shape_scale * rng.uniform(250, 500));
+
+        s = rng.uniform(3, 9);
+        a = 360.0 / (double)s;
+
+        pts.clear();
+        for (long jdx = 0; jdx < s; ++jdx)
+        {
+            angle = rng.uniform(jdx * a, (jdx + 1) * a);
+
+            if (w / std::abs(std::cos((CV_PI / 180.0) * angle)) <= h / std::abs(std::sin((CV_PI / 180.0) * angle)))
+            {
+                max_radius = (int32_t)std::abs(w / (double)std::cos((CV_PI / 180.0) * angle));
+            }
+            else
+            {
+                max_radius = (int32_t)std::abs(h / (double)std::sin((CV_PI / 180.0) * angle));
+            }
+
+            radius = rng.uniform(max_radius >> 2, max_radius);
+            pts.push_back(cv::Point((int32_t)(radius * std::cos((CV_PI / 180.0) * angle)), (int32_t)(radius * std::sin((CV_PI / 180.0) * angle))));
+        }
+
+        vpts[0] = pts;
+        cv::fillPoly(img_l, vpts, color, cv::LineTypes::LINE_8, 0, cv::Point(x_l, y_l));
+        cv::fillPoly(img_r, vpts, color, cv::LineTypes::LINE_8, 0, cv::Point(x_r, y_r));
+
+        break;
+
+    }   // end switch
+
+}   // end of generate_random_shape_pair
 
 // ----------------------------------------------------------------------------------------
 void generate_random_image(
@@ -187,8 +294,9 @@ void generate_random_image(unsigned char*& img,
 }   // end of generate_random_image
 
 //-----------------------------------------------------------------------------
-void generate_random_mask(cv::Mat& output_mask,
-    cv::Size img_size,
+void generate_random_mask(cv::Mat& mask,
+    long nr,
+    long nc,
     cv::RNG& rng,
     uint32_t num_shapes,
     double scale = 0.1
@@ -196,23 +304,15 @@ void generate_random_mask(cv::Mat& output_mask,
 {
 
     uint32_t idx;
-
-    int nr = img_size.width;
-    int nc = img_size.height;
+    cv::Scalar C = cv::Scalar(1, 1, 1);
 
     // create the image with a black background color
-    output_mask = cv::Mat(nr, nc, CV_8UC3, cv::Scalar::all(0));
+    mask = cv::Mat(nr, nc, CV_8UC3, cv::Scalar::all(0));
 
     // create N shapes
     for (idx = 0; idx < num_shapes; ++idx)
     {
-
-        // color for all shapes
-        cv::Scalar C = cv::Scalar(1, 1, 1);
-
-        // generate the random shape
-        generate_random_shape(output_mask, rng, nr, nc, C, scale);
-
+        generate_random_shape(mask, rng, nr, nc, C, scale);
     }   // end for loop
 
 } // end of generate_random_mask
@@ -228,7 +328,7 @@ void generate_random_overlay(cv::Mat random_img, //cv::Size img_size,
 {
 
     // generate random mask
-    generate_random_mask(output_mask, cv::Size(random_img.cols, random_img.rows) , rng, num_shapes, scale);
+    generate_random_mask(output_mask, random_img.rows, random_img.cols,  rng, num_shapes, scale);
 
     // multiply random_img times output_mask
     cv::multiply(random_img, output_mask, output_img);

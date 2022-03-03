@@ -87,8 +87,11 @@ int main(int argc, char** argv)
     auto elapsed_time = std::chrono::duration_cast<d_sec>(stop_time - start_time);
     std::string platform;
 
-    cv::Mat tmp_img;
-    cv::Mat img_l, img_r;
+    cv::Mat random_img;
+    cv::Mat img_left, img_right;
+    cv::Mat layer_left, layer_right;
+    cv::Mat mask_left, mask_right;
+    cv::Mat output_img, output_mask;
     cv::Mat montage;
     cv::Mat depth_map;
 
@@ -97,18 +100,21 @@ int main(int argc, char** argv)
     std::string input_param_file;
 
     std::string scenario_name;
-    
+    std::string f1_filename, f2_filename, dmap_filename;
+
+    int32_t N, min_N, max_N;
     uint8_t bg_dm, fg_dm;                   // background and foreground depthmap values
     double bg_prob, fg_prob;                // background and foreground probability of this value being selected
     std::vector<uint8_t> dm_values;         // container to store the current set of depthmap values
     std::vector<uint8_t> dm_indexes;
     double shape_scale = 0.1;
+    double pattern_scale = 0.1;
     double tmp_shape_scale;
     double bg_x, fg_x;
     uint32_t bg_shape_num;                  // number of shapes in teh background image
-    double pattern_scale = 0.1;
+    int32_t x_offset, y_offset;
     
-    // stereo camara parameters (meters)
+    // stereo camera parameters (meters)
     double pixel_size = 2e-9;
     double focal_length = 0.00212;
     double baseline = 0.120;
@@ -149,7 +155,7 @@ int main(int argc, char** argv)
     }
     // assign the foreground and background depthmap values based on the ranges input
     uint8_t fg_dm_value = 0;
-    uint8_t bg_dm_value = static_cast<uint8_t>(ranges.size());
+    uint8_t bg_dm_value = static_cast<uint8_t>(ranges.size() - 1);
 
     bg_shape_num = (uint32_t)std::floor(1.9 * std::max(img_w, img_h));
 
@@ -275,23 +281,46 @@ int main(int argc, char** argv)
             }
 
             // generate a random image
-            generate_random_image(tmp_img, rng, img_h, img_w + disparity[dm_values[0]], bg_shape_num, pattern_scale);
+            generate_random_image(random_img, rng, img_h, img_w + disparity[dm_values[0]], bg_shape_num, pattern_scale);
 
             // crop the image according to the disparity
-            img_l = tmp_img(cv::Rect(0, 0, img_w, img_h));
-            img_r = tmp_img(cv::Rect(disparity[dm_indexes[0]], 0, img_w, img_h));
+            img_left = random_img(cv::Rect(0, 0, img_w, img_h));
+            img_right = random_img(cv::Rect(disparity[dm_indexes[0]], 0, img_w, img_h));
             depth_map = cv::Mat(img_h, img_w, CV_8UC1, cv::Scalar::all(dm_values[0]));
 
             for (jdx = 1; jdx < dm_values.size(); ++jdx)
             {
+                //left_layer = img_l.clone();
+                //right_layer = img_r.clone();
+
+                x_offset = rng.uniform(-1, 1);
+                y_offset = rng.uniform(-1, 1);
+
+                // set the minimum and maximum number of objects in the scene per depth layer
+                min_N = (int32_t)ceil(((bg_dm_value) / (double)(1.0 + exp(-0.365 * dm_values[idx] + (0.175 * bg_dm_value)))) + 3);
+                max_N = (int32_t)ceil(2.0 * min_N);  // 2.0
+                N = (uint32_t)std::ceil(rng.uniform(min_N, max_N + 1) * (std::max(img_w, img_h) / 512.0));
+
+                // generate a random image (img_h+4, img_w+4+disparity[dm_values[jdx]])
+                generate_random_image(random_img, rng, img_h + 4, img_w + 4 + disparity[dm_values[jdx]], bg_shape_num, pattern_scale);
+
+                // generate a set of masks 
+                generate_random_mask(output_mask, random_img.rows, random_img.cols, rng, N, shape_scale);
                 
+                // multiply random_img times mask_left
+                cv::multiply(random_img, output_mask, output_img);
 
+                mask_left = output_mask(cv::Rect(0, 2, img_w, img_h));
+                mask_right = output_mask(cv::Rect(disparity[dm_indexes[jdx]] + x_offset, 2 + y_offset, img_w, img_h));
 
+                layer_left = output_img(cv::Rect(0, 2, img_w, img_h)).clone();
+                layer_right = output_img(cv::Rect(disparity[dm_indexes[jdx]] + x_offset, 2 + y_offset, img_w, img_h)).clone();
 
+                overlay_image(img_left, layer_left, mask_left);
+                overlay_image(img_right, layer_right, mask_right);
 
-
-
-
+                // overlay depthmap
+                overlay_depthmap(depth_map, mask_left, dm_values[jdx]);
                 
             }
 
@@ -311,18 +340,18 @@ int main(int argc, char** argv)
             // if the platform is an HPC platform then don't display anything
             if (!HPC)
             {
-                cv::hconcat(img_l, img_r, montage);
+                cv::hconcat(img_left, img_right, montage);
                 cv::imshow(montage_window, montage);
                 cv::waitKey(10);
             }
 
-            std::string f1_filename = "images/" + scenario_name + num2str<int>(jdx, "image_f1_%04i.png");
-            std::string f2_filename = "images/" + scenario_name + num2str<int>(jdx, "image_f2_%04i.png");
-            std::string dmap_filename = "depth_maps/" + scenario_name + num2str<int>(jdx, "dm_%04i.png");
+            f1_filename = "images/" + scenario_name + num2str<int>(jdx, "image_f1_%04i.png");
+            f2_filename = "images/" + scenario_name + num2str<int>(jdx, "image_f2_%04i.png");
+            dmap_filename = "depth_maps/" + scenario_name + num2str<int>(jdx, "dm_%04i.png");
 
-            cv::imwrite(save_location + f1_filename, img_l);
-            cv::imwrite(save_location + f2_filename, img_r);
-            cv::imwrite(save_location + dmap_filename, depth_map);
+            //cv::imwrite(save_location + f1_filename, img_left);
+            //cv::imwrite(save_location + f2_filename, img_right);
+            //cv::imwrite(save_location + dmap_filename, depth_map);
 
             std::cout << f1_filename << ", " << f2_filename << ", " << dmap_filename << std::endl;
             
