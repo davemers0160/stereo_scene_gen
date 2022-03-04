@@ -22,7 +22,7 @@ void generate_depthmap_index_set(
 
     for (int32_t idx = 0; idx < max_dm_num; idx++)
     {
-        random_idx = rng.uniform(1, max_index);
+        random_idx = rng.uniform(0, max_index);
         set_values.insert(random_idx);
     }
 

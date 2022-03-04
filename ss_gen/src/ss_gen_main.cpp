@@ -123,6 +123,8 @@ int main(int argc, char** argv)
     std::vector<double> ranges;
     std::vector<uint32_t> disparity;
     std::vector<uint32_t> bg_disparity, fg_disparity;
+    std::vector<uint32_t> disp_values;
+    uint32_t tmp_disp;
 
     uint8_t dataset_type = 0;
     uint32_t max_dm_vals_per_image = 8;
@@ -216,21 +218,21 @@ int main(int argc, char** argv)
     param_stream << num_objects << std::endl;
     param_stream << num_images << std::endl << std::endl;
     param_stream << "------------------------------------------------------------------" << std::endl;
-
+*/
     // print out the parameters
     std::cout << "------------------------------------------------------------------" << std::endl;
     std::cout << "Parameters used to generate the dataset" << std::endl;
-    std::cout << "Depthmap Values:  " << depthmap_values << std::endl;
-    std::cout << "Sigma Table:      " << sigma_table << std::endl;
-    std::cout << "Blur Radius 1:    " << br1_table << std::endl;
-    std::cout << "Blur Radius 2:    " << br2_table << std::endl;
-    std::cout << "Dataset Type:     " << static_cast<uint32_t>(dataset_type) << std::endl;
+    std::cout << "Disparity Values: " << disparity << std::endl;
+    //std::cout << "Sigma Table:      " << sigma_table << std::endl;
+    //std::cout << "Blur Radius 1:    " << br1_table << std::endl;
+    //std::cout << "Blur Radius 2:    " << br2_table << std::endl;
+    //std::cout << "Dataset Type:     " << static_cast<uint32_t>(dataset_type) << std::endl;
     std::cout << "Image Size (hxw): " << img_h << " x " << img_w << std::endl;
-    std::cout << "DM Values/Image:  " << max_dm_num << std::endl;
-    std::cout << "# of Objects:     " << num_objects << std::endl;
+    std::cout << "DM Values/Image:  " << max_dm_vals_per_image << std::endl;
+    //std::cout << "# of Objects:     " << num_objects << std::endl;
     std::cout << "# of Images:      " << num_images << std::endl;
     std::cout << "------------------------------------------------------------------" << std::endl << std::endl;
-*/
+
 
     // if the platform is an HPC platform then don't display anything
     if (!HPC)
@@ -265,6 +267,7 @@ int main(int argc, char** argv)
             //depth_map = cv::Mat(img_h, img_w, CV_8UC1, cv::Scalar::all(0));
 
             dm_values.clear();
+            disp_values.clear();
 
             // generate random dm_values that include the foreground and background values
             int32_t tmp_dm_num = max_dm_vals_per_image;
@@ -287,10 +290,10 @@ int main(int argc, char** argv)
             // check the background probability and fill in the tables
             if (bg_x < bg_prob)
             {
-                //uint16_t dm = rng.uniform(0, bg_br_table.size());
+                tmp_disp = rng.uniform(0, bg_disparity.size());
                 //tmp_br1_table.push_back(bg_br_table[dm].first);
                 //tmp_br2_table.push_back(bg_br_table[dm].second);
-
+                disp_values.push_back(bg_disparity[tmp_disp]);
                 dm_values.push_back(bg_dm_value);
             }
 
@@ -299,25 +302,26 @@ int main(int argc, char** argv)
             {
                 //tmp_br1_table.push_back(br1_table[dm_indexes[jdx]]);
                 //tmp_br2_table.push_back(br2_table[dm_indexes[jdx]]);
-                dm_values.push_back(dm_indexes[jdx]);
+                disp_values.push_back(disparity[dm_indexes[jdx]]);
+                dm_values.push_back(dm_indexes[jdx] + 1);
             }
 
             // check the foreground probability and fill in the tables
             if (fg_x < fg_prob)
             {
-                //uint16_t dm = rng.uniform(0, fg_br_table.size());
+                tmp_disp = rng.uniform(0, fg_disparity.size());
                 //tmp_br1_table.push_back(fg_br_table[dm].first);
                 //tmp_br2_table.push_back(fg_br_table[dm].second);
-
+                disp_values.push_back(fg_disparity[tmp_disp]);
                 dm_values.push_back(fg_dm_value);
             }
 
             // generate a random image
-            generate_random_image(random_img, rng, img_h, img_w + disparity[dm_values[0]], bg_shape_num, pattern_scale);
+            generate_random_image(random_img, rng, img_h, img_w + disp_values[0], bg_shape_num, pattern_scale);
 
             // crop the image according to the disparity
             img_left = random_img(cv::Rect(0, 0, img_w, img_h)).clone();
-            img_right = random_img(cv::Rect(disparity[dm_indexes[0]], 0, img_w, img_h)).clone();
+            img_right = random_img(cv::Rect(disp_values[0], 0, img_w, img_h)).clone();
             depth_map = cv::Mat(img_h, img_w, CV_8UC1, cv::Scalar::all(dm_values[0]));
 
             for (jdx = 1; jdx < dm_values.size(); ++jdx)
@@ -334,7 +338,7 @@ int main(int argc, char** argv)
                 N = (uint32_t)std::ceil(rng.uniform(min_N, max_N + 1) * (std::max(img_w, img_h) / 512.0));
 
                 // generate a random image (img_h+4, img_w+4+disparity[dm_values[jdx]])
-                generate_random_image(random_img, rng, img_h + 4, img_w + 4 + disparity[dm_values[jdx]], bg_shape_num, pattern_scale);
+                generate_random_image(random_img, rng, img_h + 4, img_w + 4 + disp_values[jdx], bg_shape_num, pattern_scale);
 
                 // generate a set of masks 
                 generate_random_mask(output_mask, random_img.rows, random_img.cols, rng, N, shape_scale);
@@ -343,10 +347,10 @@ int main(int argc, char** argv)
                 cv::multiply(random_img, output_mask, output_img);
 
                 mask_left = output_mask(cv::Rect(0, 2, img_w, img_h));
-                mask_right = output_mask(cv::Rect(disparity[dm_indexes[jdx]] + x_offset, 2 + y_offset, img_w, img_h));
+                mask_right = output_mask(cv::Rect(disp_values[jdx] + x_offset, 2 + y_offset, img_w, img_h));
 
                 layer_left = output_img(cv::Rect(0, 2, img_w, img_h)).clone();
-                layer_right = output_img(cv::Rect(disparity[dm_indexes[jdx]] + x_offset, 2 + y_offset, img_w, img_h)).clone();
+                layer_right = output_img(cv::Rect(disp_values[jdx] + x_offset, 2 + y_offset, img_w, img_h)).clone();
 
                 overlay_image(img_left, layer_left, mask_left);
                 overlay_image(img_right, layer_right, mask_right);
@@ -356,34 +360,21 @@ int main(int argc, char** argv)
                 
             }
 
-
-
-
-
-
-
-
-
-
-            //tmp_img = cv::Mat(img_h, img_w, CV_8UC3, cv::Scalar::all(0));
-
-            //int16_t dm = rng.uniform(-1, 1);
-
             // if the platform is an HPC platform then don't display anything
             if (!HPC)
             {
                 cv::hconcat(img_left, img_right, montage);
                 cv::imshow(montage_window, montage);
-                cv::waitKey(10);
+                cv::waitKey(0);
             }
 
             f1_filename = "images/" + scenario_name + num2str<int>(jdx, "image_left_%04i.png");
             f2_filename = "images/" + scenario_name + num2str<int>(jdx, "image_right_%04i.png");
             depthmap_filename = "depth_maps/" + scenario_name + num2str<int>(jdx, "dm_%04i.png");
 
-            //cv::imwrite(save_location + f1_filename, img_left);
-            //cv::imwrite(save_location + f2_filename, img_right);
-            //cv::imwrite(save_location + depthmap_filename, depth_map);
+            cv::imwrite(save_location + f1_filename, img_left);
+            cv::imwrite(save_location + f2_filename, img_right);
+            cv::imwrite(save_location + depthmap_filename, depth_map);
 
             std::cout << f1_filename << ", " << f2_filename << ", " << depthmap_filename << std::endl;
             

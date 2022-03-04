@@ -6,7 +6,7 @@ test1
 0.31, 15:2:25
 
 #2 foreground probablility, ranges (min:step:max (meters), min/max cannot be 0)
-0.35, 0.1:0.1:0.4
+0.35, 0.2:0.1:0.4
 
 #3 ROI ranges (min:step:max (meters), min/max cannot be 0
 0.5:0.5:14
@@ -24,4 +24,4 @@ test1
 10
 
 #8 save location
-d:/data/dfd/tb23a_wood/
+d:/data/stereo/test1/
