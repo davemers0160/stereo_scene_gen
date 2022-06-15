@@ -100,10 +100,10 @@ int main(int argc, char** argv)
     std::string input_param_file;
 
     std::string scenario_name;
-    std::string f1_filename, f2_filename, depthmap_filename;
+    std::string left_filename, right_filename, depthmap_filename;
 
     int32_t N, min_N, max_N;
-    uint8_t bg_dm, fg_dm;                   // background and foreground depthmap values
+    //uint8_t bg_dm, fg_dm;                   // background and foreground depthmap values
     double bg_prob, fg_prob;                // background and foreground probability of this value being selected
     double bg_x, fg_x;
     std::vector<double> bg_range_values, fg_range_values;
@@ -112,7 +112,7 @@ int main(int argc, char** argv)
     std::vector<uint8_t> dm_indexes;
     double shape_scale = 0.1;
     double pattern_scale = 0.1;
-    double tmp_shape_scale;
+    //double tmp_shape_scale;
     uint32_t bg_shape_num;                  // number of shapes in teh background image
     int32_t x_offset, y_offset;             // used to jitter the right hand side image slightly
     
@@ -250,7 +250,7 @@ int main(int argc, char** argv)
         dataLog_stream << "# Data Directory" << std::endl;
         dataLog_stream << save_location << ", " << save_location << std::endl;
         dataLog_stream << std::endl;
-        dataLog_stream << "# focus point 1 filename, focus point 2 filename, depthmap filename" << std::endl;
+        dataLog_stream << "# left image filename, right image filename, depthmap filename" << std::endl;
         
         std::cout << "Data Directory: " << save_location << std::endl;
 
@@ -365,27 +365,27 @@ int main(int argc, char** argv)
             {
                 cv::hconcat(img_left, img_right, montage);
                 cv::imshow(montage_window, montage);
-                cv::waitKey(0);
+                cv::waitKey(10);
             }
 
-            f1_filename = "images/" + scenario_name + num2str<int>(jdx, "image_left_%04i.png");
-            f2_filename = "images/" + scenario_name + num2str<int>(jdx, "image_right_%04i.png");
-            depthmap_filename = "depth_maps/" + scenario_name + num2str<int>(jdx, "dm_%04i.png");
+            left_filename = "images/" + scenario_name + num2str<int>(idx, "image_left_%04i.png");
+            right_filename = "images/" + scenario_name + num2str<int>(idx, "image_right_%04i.png");
+            depthmap_filename = "depth_maps/" + scenario_name + num2str<int>(idx, "dm_%04i.png");
 
-            cv::imwrite(save_location + f1_filename, img_left);
-            cv::imwrite(save_location + f2_filename, img_right);
+            cv::imwrite(save_location + left_filename, img_left);
+            cv::imwrite(save_location + right_filename, img_right);
             cv::imwrite(save_location + depthmap_filename, depth_map);
 
-            std::cout << f1_filename << ", " << f2_filename << ", " << depthmap_filename << std::endl;
+            std::cout << left_filename << ", " << right_filename << ", " << depthmap_filename << std::endl;
             
             // this doesn't get filled in anymore
             //std::cout << dm_values << std::endl;
 
-            //param_stream << "image " << num2str<int>(jdx, "%03d: ") << dm_values << std::endl;
-            //param_stream << "           " << tmp_br1_table << std::endl;
+            param_stream << "image " << num2str<int>(idx, "%03d: ") << dm_values << std::endl;
+            param_stream << "           " << disp_values << std::endl;
             //param_stream << "           " << tmp_br2_table << std::endl;
 
-            dataLog_stream << f1_filename << ", " << f2_filename << ", " << depthmap_filename << std::endl;
+            dataLog_stream << left_filename << ", " << right_filename << ", " << depthmap_filename << std::endl;
 
         } // end of for loop
 

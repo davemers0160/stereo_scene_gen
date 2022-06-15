@@ -1,6 +1,6 @@
-# data file for generating the blurred image dataset
+# data file for generating the stereo image dataset
 # 0 scenario name
-test1
+test1_
 
 #1 background probablility, ranges (min:step:max (meters), min/max cannot be 0)
 0.31, 15:2:25
